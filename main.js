@@ -6,10 +6,8 @@ import { preprocess } from './gs-edit/preprocess.js';
 import { loadGVRM } from './gs-edit/gvrm.js';
 import { Recorder } from './gs-edit/recorder.js';
 import { PoseDetector } from './gs-edit/pose.js';
-import { Rotator, RotatorRTC } from './gs-edit/rotator.js';
+import { Rotator } from './gs-edit/rotator.js';
 import { FPSCounter } from './gs-edit/fps.js';
-import { startWebRTC } from './webrtc/utils.js';
-import { relayCommander } from './webrtc/command.js';
 import * as Utils from './gs-edit/utils.js';
 
 
@@ -29,22 +27,12 @@ const modelRotX = params.get('rotx');
 const fast = params.has('fast');
 const stage = params.get('stage');
 const useVR = params.has('vr');
-const sessionId = params.get('session') ?? 'test';
-const signalingType = params.get('signaling') ?? 'auto';
-const signalingHost =
-  params.get('host') === 'local' ? 'http://localhost' : params.get('host');
-const signalingPort = params.get('port') ?? 3000;
 const size = params.get('size');
 if (size) {
   const match = size.match(/([\d]+),([\d]+)/);
   width = parseInt(match[1]);
   height = parseInt(match[2]);
   document.body.style.backgroundColor = 'gray';
-}
-const sessionIdInputArea = document.getElementById('sessionId');
-sessionIdInputArea.value = sessionId;
-if (signalingType !== 'none') {
-  document.getElementById('webrtc').style.display = 'block';
 }
 
 
@@ -189,7 +177,7 @@ if (useVR) {
 
 let flagReady1, flagReady2;
 
-let gvrm, commander, pc, rotatorRTC;
+let gvrm, commander, pc;
 
 let stateAnim = "play";
 let stateColor = "original";
@@ -227,15 +215,6 @@ const recorder = new Recorder(renderer);
 const rotator = new Rotator(camera);
 
 const fpsc = new FPSCounter();
-
-if (signalingType !== 'none') {
-  pc = startWebRTC(signalingType, signalingHost, signalingPort, sessionId, renderer.domElement);
-  rotatorRTC = new RotatorRTC(pc, camera);
-}
-
-if (signalingType === 'auto') {
-  commander = new relayCommander(signalingHost, signalingPort, scene, camera, renderer);
-}
 
 window.poseDetector = poseDetector;
 
@@ -365,10 +344,6 @@ function animate() {
   }
 
   rotator.update();
-
-  if (rotatorRTC) {
-    rotatorRTC.update();
-  }
 
   controls.update();
   controls2.update();
