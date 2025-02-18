@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>gaussian splatting</title>
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    body {
+      font-size: 14px;
+      margin: 0px;
+      display: flex;
+      overflow: hidden;
+      color: white;
+      /* color: black; */
+      background-color: black;
+    }
+
+    #threejs-container {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: -1;
+    }
+
+    #info {
+      font-size: 12px;
+      top: 4px;
+      left: 8px;
+      position: absolute;
+      color: white !important;
+    }
+
+    #infoR {
+      font-size: 12px;
+      top: 4px;
+      right: 8px;
+      position: absolute;
+      color: white !important;
+    }
+
+    #controls {
+      position: absolute;
+      top: 28px;
+      width: 20%;
+      /* visibility: hidden; */
+    }
+
+    #controlsR {
+      position: absolute;
+      top: 28px;
+      right: 8px;
+      /* visibility: hidden; */
+    }
+
+    #capturedImage {
+      position: absolute;
+      top: 64px;
+      right: 8px;
+      height: 100px;
+      visibility: hidden;
+    }
+
+    #poseCanvas {
+      position: absolute;
+      top: 172px; /* キャプチャ画像の下に配置 */
+      right: 8px;
+      visibility: hidden;
+    }
+
+    #poseCanvas2 {
+      position: absolute;
+      top: 280px; /* キャプチャ画像の下に配置 */
+      right: 8px;
+      visibility: hidden;
+    }
+
+    #error-display {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      padding: 1rem;
+      background: #fdd;
+      visibility: hidden;
+    }
+
+    .upload-btn {
+      padding: 20px 40px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .upload-btn:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="info" class="info">
+    FPS: <span id="fpsdisplay" style="display: inline;"></span>
+  </div>
+
+  <div id="controls">
+    <div>
+      <label for="rotateCheckbox">Rotater</label>
+      <input
+        id="rotateCheckbox"
+        type="checkbox"
+      />
+      <input
+        id="rotationSpeedRange"
+        type="range"
+        min="-10"
+        max="10"
+        step="1"
+        value="0"
+        color="white"
+      />
+    </div>
+  
+    <div id="webrtc" style="display: none;">
+      <div>
+        <button id="startButton" style="margin-top: 24px;">Create Offer</button>
+      </div>
+
+      <h3>Sesstion ID:</h3>
+      <input id="sessionId" value="test" />
+
+      <h3>Offer SDP (send this to remote party):</h3>
+      <textarea id="offerSdp" readonly></textarea>
+
+      <h3>Paste Remote Answer here:</h3>
+      <textarea id="answerSdp"></textarea>
+      <div>
+        <button id="applyAnswerButton"style="margin-top: 12px;">Set Remote Answer</button>
+      </div>
+
+      <h3>ICE Candidates (if any):</h3>
+      <textarea id="iceCandidates" readonly></textarea>
+    </div>
+  </div>
+
+  <div id="infoR" class="info">
+    Loading: <div id="loaddisplay" style="display: inline;">0%</div>
+  </div>
+
+  <div id="controlsR">
+    <button id="captureButton">フレームをキャプチャ</button>
+    <img id="capturedImage">
+    <canvas id="poseCanvas"></canvas>
+    <canvas id="poseCanvas2"></canvas>
+  </div>
+
+  <div id="threejs-container"></div>
+
+  <div id="error-display"></div>
+
+  <div id="upload-container" style="display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);">
+    <button id="upload-button" class="upload-btn">Upload File (.ply or .gvrm)</button>
+    <input type="file" id="file-input" accept=".ply,.gvrm" style="display: none;">
+  </div>
+
+  <!-- "three": "https://unpkg.com/three@0.170.0/build/three.module.min.js", -->
+  <!-- "three": "https://unpkg.com/three@0.170.0/build/three.webgpu.min.js", -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+  <script type="importmap">
+			{
+				"imports": {
+					"three": "https://unpkg.com/three@0.170.0/build/three.module.min.js",
+					"three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+					"three/addons/controls/OrbitControls.js": "./lib/OrbitControls.js",
+					"three/addons/controls/TrackballControls.js": "./lib/TrackballControls.js",
+					"@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.1.0/lib/three-vrm.module.js",
+					"gaussian-splats-3d": "./lib/gaussian-splats-3d.module.min.js"
+				}
+			}
+		</script>
+  <script src="error.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+
+</html>

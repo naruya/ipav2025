@@ -1,0 +1,82 @@
+{
+  "boneOperations": [
+    {
+      "boneName": "leftLowerArm",
+      "position": {
+        "x": -0.1,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 5
+      }
+    },
+    {
+      "boneName": "rightLowerArm",
+      "position": {
+        "x": 0.1,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "boneName": "leftUpperArm",
+      "position": {
+        "x": -0.04,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 5,
+        "y": 0,
+        "z": 65
+      }
+    },
+    {
+      "boneName": "rightUpperArm",
+      "position": {
+        "x": 0.04,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": -72
+      }
+    },
+    {
+      "boneName": "leftLowerLeg",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 5
+      }
+    },
+    {
+      "boneName": "leftUpperLeg",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": -10
+      }
+    }
+  ]
+}
