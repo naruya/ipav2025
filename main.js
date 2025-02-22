@@ -209,6 +209,7 @@ function transferBoneOperations(sourceVRM, targetVRM, sourceScale) {
 
 // カメラ回転と画像キャプチャのための関数
 async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 30) {
+  axesHelper.visible = false;
   const originalPosition = camera.position.clone();
 
   renderer.setSize(1024, 1024);
@@ -220,8 +221,10 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
   const radius = 1.6;
 
   const zip = new JSZip();
-  const imageFolderName = "rotation_images";
+  const imageFolderName = "images";
   const imageFolder = zip.folder(imageFolderName);
+
+  const w2cList = [];
 
   camera.position.y = 0.8;
   for (let i = 0; i < roundFrames; i++) {
@@ -230,6 +233,11 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
     camera.position.x = radius * Math.sin(angle);
     camera.position.z = radius * Math.cos(angle);
     camera.lookAt(0, 0, 0);
+
+    camera.updateMatrixWorld(true);
+    const w2c = camera.matrixWorldInverse.clone();
+    w2cList.push(Array.from(w2c.elements));
+
     renderer.render(scene, camera);
 
     const dataUrl = renderer.domElement.toDataURL('image/png');
@@ -248,6 +256,11 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
     camera.position.x = radius * Math.sin(angle);
     camera.position.z = radius * Math.cos(angle);
     camera.lookAt(0, 0, 0);
+
+    camera.updateMatrixWorld(true);
+    const w2c = camera.matrixWorldInverse.clone();
+    w2cList.push(Array.from(w2c.elements));
+
     renderer.render(scene, camera);
 
     const dataUrl = renderer.domElement.toDataURL('image/png');
@@ -259,12 +272,17 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
     await new Promise(resolve => setTimeout(resolve, 33));
   }
 
+  const w2cJson = JSON.stringify({
+    camera_params: w2cList
+  }, null, 2);
+  zip.file("camera_params.json", w2cJson);
+
   document.getElementById('loaddisplay').innerHTML = 'Generating ZIP...';
   const content = await zip.generateAsync({type: "blob"});
   const url = URL.createObjectURL(content);
   const link = document.createElement('a');
   link.href = url;
-  link.download = "rotation_images.zip";
+  link.download = "images.zip";
   link.click();
   URL.revokeObjectURL(url);
 
@@ -275,6 +293,7 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
   camera.aspect = width / height;
   camera.position.copy(originalPosition);
   camera.updateProjectionMatrix();
+  axesHelper.visible = true;
   renderer.render(scene, camera);
 
   document.getElementById('loaddisplay').innerHTML = 'Capture complete';
