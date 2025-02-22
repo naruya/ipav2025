@@ -181,6 +181,30 @@ export class VRMCharacter {
         return this._isLoading;
     }
 
+    setScale(scale) {
+        this.ground = this.ground / this.scale * scale;
+        this.scale = scale;
+
+        const vrm = this.currentVrm;
+
+        vrm.scene.position.y = this.ground;
+        vrm.scene.scale.setScalar(this.scale);
+
+        // scale joints
+        for (const joint of vrm.springBoneManager.joints) {
+            joint.settings.stiffness *= this.scale;
+            joint.settings.hitRadius *= this.scale;
+        }
+        // scale colliders
+        for (const collider of vrm.springBoneManager.colliders) {
+            const shape = collider.shape;
+            shape.radius *= this.scale;
+            if (shape.tail) {
+                shape.tail.multiplyScalar(this.scale);
+            }
+        }
+    }
+
     update() {
         const deltaTime = this.clock.getDelta();
         if (this.currentVrm) {
