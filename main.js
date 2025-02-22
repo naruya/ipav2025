@@ -207,6 +207,80 @@ function transferBoneOperations(sourceVRM, targetVRM, sourceScale) {
 }
 
 
+// カメラ回転と画像キャプチャのための関数
+async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 30) {
+  const originalPosition = camera.position.clone();
+
+  renderer.setSize(1024, 1024);
+  camera.aspect = 1;
+  camera.updateProjectionMatrix();
+
+  const angleStep = (Math.PI * 2) / roundFrames;
+
+  const radius = 1.6;
+
+  const zip = new JSZip();
+  const imageFolderName = "rotation_images";
+  const imageFolder = zip.folder(imageFolderName);
+
+  camera.position.y = 0.8;
+  for (let i = 0; i < roundFrames; i++) {
+    const angle = angleStep * i;
+
+    camera.position.x = radius * Math.sin(angle);
+    camera.position.z = radius * Math.cos(angle);
+    camera.lookAt(0, 0, 0);
+    renderer.render(scene, camera);
+
+    const dataUrl = renderer.domElement.toDataURL('image/png');
+    const imageData = dataUrl.split('base64,')[1];
+    imageFolder.file(`rotation_${String(i).padStart(3, '0')}.png`, imageData, {base64: true});
+
+    document.getElementById('loaddisplay').innerHTML = `Capturing: ${Math.round((i + 1) / roundFrames * 50)}%`;
+
+    await new Promise(resolve => setTimeout(resolve, 33));
+  }
+
+  camera.position.y = -0.8;
+  for (let i = 0; i < roundFrames; i++) {
+    const angle = angleStep * i + angleStep / 2.0;
+
+    camera.position.x = radius * Math.sin(angle);
+    camera.position.z = radius * Math.cos(angle);
+    camera.lookAt(0, 0, 0);
+    renderer.render(scene, camera);
+
+    const dataUrl = renderer.domElement.toDataURL('image/png');
+    const imageData = dataUrl.split('base64,')[1];
+    imageFolder.file(`rotation_${String(i+roundFrames).padStart(3, '0')}.png`, imageData, {base64: true});
+
+    document.getElementById('loaddisplay').innerHTML = `Capturing: ${Math.round((i + 1) / roundFrames * 50 + 50)}%`;
+
+    await new Promise(resolve => setTimeout(resolve, 33));
+  }
+
+  document.getElementById('loaddisplay').innerHTML = 'Generating ZIP...';
+  const content = await zip.generateAsync({type: "blob"});
+  const url = URL.createObjectURL(content);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = "rotation_images.zip";
+  link.click();
+  URL.revokeObjectURL(url);
+
+  width = window.innerWidth;
+  height = window.innerHeight;
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(width, height);
+  camera.aspect = width / height;
+  camera.position.copy(originalPosition);
+  camera.updateProjectionMatrix();
+  renderer.render(scene, camera);
+
+  document.getElementById('loaddisplay').innerHTML = 'Capture complete';
+}
+
+
 if (gvrmPath) {
   const promise2 = loadGVRM(gvrmPath, scene, camera, renderer);
   promise2.then((result) => {
@@ -231,6 +305,8 @@ if (gvrmPath) {
 } else if (vrmPath) {
   character = new VRMCharacter(scene, vrmPath, '', 1.0, true);
   await character.loadingPromise;
+  character.skinnedMeshIndex = 2;
+  character.faceIndex = 1;
   window.character = character;
   let response = await fetch("./assets/default.json");
   const params = await response.json();
@@ -246,6 +322,9 @@ if (gvrmPath) {
 
   let sotai = new VRMCharacter(scene, sotaiPath, '', 1.0, true);
   await sotai.loadingPromise;
+  sotai.skinnedMeshIndex = 2;
+  sotai.faceIndex = 1;
+  Utils.visualizeVRM(sotai, null);
   character.sotai = sotai;
 
   stateAnim = "stop";
@@ -280,6 +359,8 @@ if (gvrmPath) {
   Utils.resetPose(character, character.boneOperations);
   Utils.resetPose(character.sotai, character.boneOperations);
   transferBoneOperations(character.currentVrm, sotai.currentVrm, character.scale);
+
+  await captureImagesWithRotation(scene, camera, renderer);
 }
 
 const poseDetector = new PoseDetector(scene, camera, renderer);
