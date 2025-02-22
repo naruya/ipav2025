@@ -6,14 +6,14 @@ import { getPointsMeshCapsules } from './preprocess.js';
 import { PLYParser } from './ply.js';
 
 
-export async function initVRM(vrmPath, scene, camera, renderer, modelScale, boneOperations) {
+export async function initVRM(sotaiPath, scene, camera, renderer, modelScale, boneOperations) {
   if ( !boneOperations ) {
     boneOperations = (await (await fetch("./assets/default.json")).json()).boneOperations;
   }
   if ( !modelScale ) {
     modelScale = 1.0;
   }
-  const character = new VRMCharacter(scene, vrmPath, '', modelScale, true);
+  const character = new VRMCharacter(scene, sotaiPath, '', modelScale, true);
   await character.loadingPromise;
   character.currentVrm.scene.renderOrder = 10;
 
@@ -163,8 +163,8 @@ export async function loadGVRM(url, scene, camera, renderer) {
 }
 
 
-export async function saveGVRM(gvrm, vrmPath, gsPath, boneOperations, modelScale = 1.05) {
-  const vrmBuffer = await fetch(vrmPath).then(response => response.arrayBuffer());
+export async function saveGVRM(gvrm, sotaiPath, gsPath, boneOperations, modelScale = 1.05) {
+  const vrmBuffer = await fetch(sotaiPath).then(response => response.arrayBuffer());
   const plyBuffer = await fetch(gsPath).then(response => response.arrayBuffer());
 
   const extraData = {
@@ -243,8 +243,8 @@ export class GVRM {
     this.isReady = true;
   }
 
-  async saveGVRM(vrmPath, gsPath, boneOperations, modelScale) {
-    await saveGVRM(this, vrmPath, gsPath, boneOperations, modelScale);
+  async saveGVRM(sotaiPath, gsPath, boneOperations, modelScale) {
+    await saveGVRM(this, sotaiPath, gsPath, boneOperations, modelScale);
   }
 
   async removeGVRM(scene) {

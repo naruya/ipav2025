@@ -614,7 +614,7 @@ async function findBestAngleInRange(scene, camera, renderer, poseDetector, start
 }
 
 
-export async function preprocess(vrmPath, gsPath, scene, camera, renderer, vrmScale=null, vrmRotX=null, stage=null, fast=false) {
+export async function preprocess(sotaiPath, gsPath, scene, camera, renderer, vrmScale=null, vrmRotX=null, stage=null, fast=false) {
   if (stage === null) {
     stage = '0';
   }
@@ -647,7 +647,7 @@ export async function preprocess(vrmPath, gsPath, scene, camera, renderer, vrmSc
 
   // main gs
   let { gs } = await initGS(gsPath, undefined, scene, camera, renderer);
-  let { character } = await initVRM(vrmPath, scene, camera, renderer, vrmScale);
+  let { character } = await initVRM(sotaiPath, scene, camera, renderer, vrmScale);
 
 
   // adjust pos of gs and vrm, adjust scale of vrm
@@ -661,7 +661,7 @@ export async function preprocess(vrmPath, gsPath, scene, camera, renderer, vrmSc
     }
 
     await character.leave(scene);
-    ({ character } = await initVRM(vrmPath, scene, camera, renderer, vrmScale));
+    ({ character } = await initVRM(sotaiPath, scene, camera, renderer, vrmScale));
     character.currentVrm.scene.position.z = 0.02;
     character.currentVrm.scene.rotation.x = Math.PI / 180. * vrmRotX;
 
@@ -956,7 +956,7 @@ export async function preprocess(vrmPath, gsPath, scene, camera, renderer, vrmSc
     Utils.visualizePMC(gvrm.pmc, false);
     Utils.changeColor(gs, "original");
 
-    await gvrm.saveGVRM(vrmPath, gsPath, boneOperations, vrmScale);
+    await gvrm.saveGVRM(sotaiPath, gsPath, boneOperations, vrmScale);
     await gvrm.removeGVRM(scene);
     await gvrm.loadGVRM(gvrm.url, scene, camera, renderer);
 

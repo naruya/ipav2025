@@ -8,6 +8,7 @@ import { Recorder } from './gs-edit/recorder.js';
 import { PoseDetector } from './gs-edit/pose.js';
 import { Rotator } from './gs-edit/rotator.js';
 import { FPSCounter } from './gs-edit/fps.js';
+import { VRMCharacter } from './gs-edit/vrm.js';
 import * as Utils from './gs-edit/utils.js';
 
 
@@ -20,8 +21,9 @@ let height = window.innerHeight;
 // params
 const params = new URL(window.location.href).searchParams;
 let gsPath = params.get('gs') ?? undefined;
+let vrmPath = params.get('vrm') ?? undefined;
 let gvrmPath = params.get('gvrm') ?? undefined;
-const vrmPath = params.get('vrm') ?? "./assets/sotai1.vrm";
+const sotaiPath = params.get('sotai') ?? "./assets/sotai1.vrm";
 const modelScale = params.get('scale');
 const modelRotX = params.get('rotx');
 const fast = params.has('fast');
@@ -37,11 +39,7 @@ if (size) {
 
 
 async function setupPathsFromUrlOrUpload() {
-  const params = new URL(window.location.href).searchParams;
-  gsPath = params.get('gs') ?? undefined;
-  gvrmPath = params.get('gvrm') ?? undefined;
-
-  if (!gsPath && !gvrmPath) {
+  if (!gsPath && !vrmPath && !gvrmPath) {
     const uploadContainer = document.getElementById('upload-container');
     const uploadButton = document.getElementById('upload-button');
     const fileInput = document.getElementById('file-input');
@@ -64,6 +62,8 @@ async function setupPathsFromUrlOrUpload() {
               gsPath = objectUrl;
             } else if (extension === 'gvrm') {
               gvrmPath = objectUrl;
+            } else if (extension === 'vrm') {
+              vrmPath = objectUrl;
             }
 
             uploadContainer.style.display = 'none';
@@ -177,8 +177,7 @@ if (useVR) {
 
 let flagReady1, flagReady2;
 
-let gvrm, commander, pc;
-
+let gvrm, character;
 let stateAnim = "play";
 let stateColor = "original";
 
@@ -191,10 +190,9 @@ if (gvrmPath) {
 
     flagReady1 = true;
     flagReady2 = true;
-    if (commander) commander.set(gvrm);
   });
 } else if (gsPath) {
-  const promise1 = preprocess(vrmPath, gsPath, scene, camera, renderer, modelScale, modelRotX, stage, fast);
+  const promise1 = preprocess(sotaiPath, gsPath, scene, camera, renderer, modelScale, modelRotX, stage, fast);
   promise1.then((result) => {
     gvrm = result.gvrm;
     window.gvrm = gvrm;
@@ -203,9 +201,23 @@ if (gvrmPath) {
     const promise2 = result.promise;
     promise2.then(() => {
       flagReady2 = true;
-    if (commander) commander.set(gvrm);
     });
   });
+} else if (vrmPath) {
+  character = new VRMCharacter(scene, vrmPath, '', 1.0, true);
+  await character.loadingPromise;
+  let response = await fetch("./assets/default.json");
+  const params = await response.json();
+  const boneOperations = params.boneOperations;
+  character.boneOperations = boneOperations;
+  Utils.resetPose(character, boneOperations);
+
+  let sotai = new VRMCharacter(scene, sotaiPath, '', 1.0, true);
+  await sotai.loadingPromise;
+  character.sotai = sotai;
+  Utils.resetPose(sotai, boneOperations);
+
+  stateAnim = "stop";
 }
 
 const poseDetector = new PoseDetector(scene, camera, renderer);
@@ -236,6 +248,8 @@ window.addEventListener('dragover', function (event) {
 });
 
 window.addEventListener('drop', async function (event) {
+  if (!gvrm) return;
+
   event.preventDefault();
 
   const files = event.dataTransfer.files;
@@ -287,18 +301,22 @@ window.addEventListener('keydown', function (event) {
     } else {
       stateAnim = "play";
       t = 0;
-      if (gvrm.character.animationUrl !== '') {
+      if (gvrm && gvrm.character.animationUrl !== '') {
         gvrm.character.action.play();
       }
     }
   }
   if (event.code === "KeyV") {
+    if (!gvrm) return;
+
     Utils.removePMC(scene, gvrm.pmc);
     gvrm.updatePMC();
     Utils.addPMC(scene, gvrm.pmc);
     stateColor = gvrmPath ? "original" : stateColor;
   }
   if (event.code === "KeyC") {
+    if (!gvrm) return;
+
     if (stateColor === "empty") {
       stateColor = Utils.changeColor(gvrm.gs, stateColor);
       Utils.visualizePMC(gvrm.pmc, false);
@@ -311,6 +329,8 @@ window.addEventListener('keydown', function (event) {
     }
   }
   if (event.code === "KeyX") {
+    if (!gvrm) return;
+
     Utils.visualizeVRM(gvrm.character, null);
   }
 });
@@ -354,4 +374,28 @@ function animate() {
 }
 
 
-renderer.setAnimationLoop(animate);
+function animateVRM() {
+  if (stateAnim === "play") {
+    Utils.simpleAnim(character, t);
+    Utils.simpleAnim(character.sotai, t);
+  } else if (stateAnim === "pause") {
+    Utils.resetPose(character, character.boneOperations);
+    Utils.resetPose(character.sotai, character.boneOperations);
+    t = 0;
+    stateAnim = "stop";
+  }
+  character.update();
+  character.sotai.update();
+  controls.update();
+  controls2.update();
+  renderer.render(scene, camera);
+  fpsc.update();
+  t += 1.0;
+}
+
+
+if (gsPath || gvrmPath) {
+  renderer.setAnimationLoop(animate);
+} else if (vrmPath) {
+  renderer.setAnimationLoop(animateVRM);
+}
