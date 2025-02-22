@@ -182,7 +182,7 @@ let stateAnim = "play";
 let stateColor = "original";
 
 
-function transferBoneOperations(sourceVRM, targetVRM, targetScale) {
+function transferBoneOperations(sourceVRM, targetVRM, sourceScale) {
   const characterBones = new Set(Object.keys(sourceVRM.humanoid.humanBones));
   const sotaiBones = new Set(Object.keys(targetVRM.humanoid.humanBones));
   const commonBones = [...characterBones].filter(bone => sotaiBones.has(bone));
@@ -196,10 +196,10 @@ function transferBoneOperations(sourceVRM, targetVRM, targetScale) {
     if (sourceRawBone && targetRawBone && sourceNormBone && targetNormBone) {
       // targetRawBone.position.copy(sourceRawBone.position);
       // targetNormBone.rotation.copy(sourceNormBone.rotation);
-      targetRawBone.position.x = sourceRawBone.position.x / targetScale;
-      // targetRawBone.position.y = sourceRawBone.position.y / targetScale;
+      targetRawBone.position.x = sourceRawBone.position.x * sourceScale;
+      // targetRawBone.position.y = sourceRawBone.position.y * sourceScale;
       if (targetRawBone.position.y < 0.) {
-        targetRawBone.position.y = sourceRawBone.position.y / targetScale;
+        targetRawBone.position.y = sourceRawBone.position.y * sourceScale;
       }
     }
   }
@@ -273,14 +273,13 @@ if (gvrmPath) {
   sotaiAbs -= sotai.currentVrm.humanoid.getRawBoneNode('leftFoot').position.y;
   sotaiAbs -= sotai.currentVrm.humanoid.getRawBoneNode('leftToes').position.y;
 
-  console.log(characterAbs, sotaiAbs, characterAbs / sotaiAbs);
-  sotai.setScale(characterAbs / sotaiAbs);
+  character.setScale(sotaiAbs / characterAbs);
 
   // get common bones
   // root -> hips -> spine -> chest (-> upperChest) -> neck
   Utils.resetPose(character, character.boneOperations);
   Utils.resetPose(character.sotai, character.boneOperations);
-  transferBoneOperations(character.currentVrm, sotai.currentVrm, sotai.scale);
+  transferBoneOperations(character.currentVrm, sotai.currentVrm, character.scale);
 }
 
 const poseDetector = new PoseDetector(scene, camera, renderer);
