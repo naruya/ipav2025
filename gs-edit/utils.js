@@ -23,16 +23,26 @@ for (let i = 0; i < 100; i++) {
 
 // bone operations
 
-export function applyBoneOperations(vrm, boneOperations) {
+export function applyBoneOperations(vrm, boneOperations, add=true) {
+  // hard coded for now
+  if (boneOperations.length === 54) {
+    add = false;
+  }
   for (const op of boneOperations) {
     const boneName = op.boneName;
     const rawBone = vrm.humanoid.getRawBoneNode(boneName);
     const normBone = vrm.humanoid.getNormalizedBoneNode(boneName);
 
     if (op.position) {
-      rawBone.position.x += op.position.x;
-      rawBone.position.y += op.position.y;
-      rawBone.position.z += op.position.z;
+      if (add) {
+        rawBone.position.x += op.position.x;
+        rawBone.position.y += op.position.y;
+        rawBone.position.z += op.position.z;
+      } else {
+        rawBone.position.x = op.position.x;
+        rawBone.position.y = op.position.y;
+        rawBone.position.z = op.position.z;
+      }
     }
 
     if (op.rotation) {

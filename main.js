@@ -46,8 +46,11 @@ async function setupPathsFromUrlOrUpload() {
 
     uploadContainer.style.display = 'block';
 
+    const handleClick = () => fileInput.click();
+    uploadButton.addEventListener('click', handleClick);
+
     const fileLoadPromise = new Promise((resolve) => {
-      fileInput.addEventListener('change', (e) => {
+      const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
           const extension = file.name.split('.').pop().toLowerCase();
@@ -67,14 +70,16 @@ async function setupPathsFromUrlOrUpload() {
             }
 
             uploadContainer.style.display = 'none';
-            resolve({ gsPath, gvrmPath });
+            fileInput.removeEventListener('change', handleFileChange);
+            uploadButton.removeEventListener('click', handleClick);
+            resolve({ gsPath, gvrmPath, vrmPath });
           };
           reader.readAsArrayBuffer(file);
         }
-      });
-    });
+      };
 
-    uploadButton.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', handleFileChange);
+    });
 
     const result = await fileLoadPromise;
     return result;
@@ -275,36 +280,6 @@ async function captureImagesWithRotation(scene, camera, renderer, size=1024, rou
   const imageFolderName = "images";
   const imageFolder = zip.folder(imageFolderName);
 
-  const sotai = character.sotai;
-  const boneOperations = [];
-
-  for (const boneName of Object.keys(sotai.currentVrm.humanoid.humanBones)) {
-    const rawBone = sotai.currentVrm.humanoid.getRawBoneNode(boneName);
-    const normBone = sotai.currentVrm.humanoid.getNormalizedBoneNode(boneName);
-
-    if (rawBone && normBone) {
-      const operation = {
-        boneName: boneName,
-        position: {
-          x: rawBone.position.x,
-          y: rawBone.position.y,
-          z: rawBone.position.z
-        },
-        rotation: {
-          x: normBone.rotation.x * 180 / Math.PI,
-          y: normBone.rotation.y * 180 / Math.PI,
-          z: normBone.rotation.z * 180 / Math.PI
-        }
-      };
-      boneOperations.push(operation);
-    }
-  }
-
-  const boneOperationsJson = JSON.stringify({
-    boneOperations: boneOperations
-  }, null, 2);
-  zip.file("bone_operations.json", boneOperationsJson);
-
   const w2cList = [];
 
   camera.position.y = 0.8;
@@ -393,7 +368,7 @@ if (gvrmPath) {
     flagReady2 = true;
   });
 } else if (gsPath) {
-  const promise1 = preprocess(sotaiPath, gsPath, scene, camera, renderer, modelScale, modelRotX, stage, fast);
+  const promise1 = preprocess(sotaiPath, gsPath, scene, camera, renderer, modelScale, modelRotX, stage, fast, null);
   promise1.then((result) => {
     gvrm = result.gvrm;
     window.gvrm = gvrm;
@@ -419,7 +394,7 @@ if (gvrmPath) {
 
   let response = await fetch("./assets/default.json");
   const params = await response.json();
-  const boneOperations = params.boneOperations;
+  let boneOperations = params.boneOperations;
   boneOperations.forEach(op => {
     if (op.position) {
       op.position.x = 0;
@@ -436,6 +411,93 @@ if (gvrmPath) {
   await captureImagesWithRotation(scene, camera, renderer);
 
   stateAnim = "stop";
+
+
+  async function setupGSPathFromUpload() {
+    const uploadContainer = document.getElementById('upload-container');
+    const uploadButton = document.getElementById('upload-button');
+    const fileInput = document.getElementById('file-input');
+
+    uploadButton.textContent = 'Upload GS File (.ply)';
+    fileInput.accept = '.ply';
+
+    uploadContainer.style.display = 'block';
+
+    const handleClick = () => fileInput.click();
+    uploadButton.addEventListener('click', handleClick);
+
+    const fileLoadPromise = new Promise((resolve) => {
+        const handleFileChange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const extension = file.name.split('.').pop().toLowerCase();
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const arrayBuffer = event.target.result;
+                    const blob = new Blob([arrayBuffer]);
+                    const objectUrl = URL.createObjectURL(blob);
+
+                    if (extension === 'ply') {
+                        gsPath = objectUrl;
+                    }
+
+                    uploadContainer.style.display = 'none';
+                    fileInput.removeEventListener('change', handleFileChange);
+                    uploadButton.removeEventListener('click', handleClick);
+                    resolve({ gsPath });
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        };
+
+        fileInput.addEventListener('change', handleFileChange);
+    });
+
+    const result = await fileLoadPromise;
+    return result;
+  }
+
+  const promise = setupGSPathFromUpload();
+
+  promise.then((result) => {
+    boneOperations = [];
+
+    for (const boneName of Object.keys(sotai.currentVrm.humanoid.humanBones)) {
+      const rawBone = sotai.currentVrm.humanoid.getRawBoneNode(boneName);
+      const normBone = sotai.currentVrm.humanoid.getNormalizedBoneNode(boneName);
+
+      const operation = {
+        boneName: boneName,
+        position: {
+          x: rawBone.position.x,
+          y: rawBone.position.y,
+          z: rawBone.position.z
+        },
+        rotation: {
+          x: normBone.rotation.x * 180 / Math.PI,
+          y: normBone.rotation.y * 180 / Math.PI,
+          z: normBone.rotation.z * 180 / Math.PI
+        }
+      };
+      boneOperations.push(operation);
+    }
+
+    character.leave(scene);
+    sotai.leave(scene);
+
+    const promise1 = preprocess(sotaiPath, gsPath, scene, camera, renderer, 1.0, 0.0, "2", false, boneOperations, [0,0,0,1]);
+    promise1.then((result) => {
+      gvrm = result.gvrm;
+      window.gvrm = gvrm;
+      flagReady1 = true;
+
+      const promise2 = result.promise;
+      promise2.then(() => {
+        flagReady2 = true;
+      });
+    });
+  });
 }
 
 const poseDetector = new PoseDetector(scene, camera, renderer);

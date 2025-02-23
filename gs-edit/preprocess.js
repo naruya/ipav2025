@@ -614,7 +614,7 @@ async function findBestAngleInRange(scene, camera, renderer, poseDetector, start
 }
 
 
-export async function preprocess(sotaiPath, gsPath, scene, camera, renderer, vrmScale=null, vrmRotX=null, stage=null, fast=false) {
+export async function preprocess(sotaiPath, gsPath, scene, camera, renderer, vrmScale=null, vrmRotX=null, stage=null, fast=false, boneOperations=null, gsQuaternion=null) {
   if (stage === null) {
     stage = '0';
   }
@@ -624,7 +624,7 @@ export async function preprocess(sotaiPath, gsPath, scene, camera, renderer, vrm
   }
 
   let loadingSpinner = new DropInViewer().viewer.loadingSpinner;
-  let gs0, gsPaths, centroid, heights, circle, radius, boneOperations;
+  let gs0, gsPaths, centroid, heights, circle, radius;
 
   // clean and show
   if (stage < 1) {
@@ -646,7 +646,7 @@ export async function preprocess(sotaiPath, gsPath, scene, camera, renderer, vrm
   }
 
   // main gs
-  let { gs } = await initGS(gsPath, undefined, scene, camera, renderer);
+  let { gs } = await initGS(gsPath, gsQuaternion, scene, camera, renderer);
   let { character } = await initVRM(sotaiPath, scene, camera, renderer, vrmScale);
 
 
@@ -930,9 +930,11 @@ export async function preprocess(sotaiPath, gsPath, scene, camera, renderer, vrm
     // const jsonPath = gsPath.replace(".ply", ".json");
     // let response = await fetch(jsonPath);
     // use default bone operations
-    let response = await fetch("./assets/default.json");
-    const params = await response.json();
-    boneOperations = params.boneOperations;
+    if (!boneOperations) {
+      let response = await fetch("./assets/default.json");
+      const params = await response.json();
+      boneOperations = params.boneOperations;
+    }
     Utils.resetPose(character, boneOperations);
     // TODO: refactor
     character.currentVrm.scene.updateMatrixWorld(true);
