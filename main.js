@@ -259,6 +259,7 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
   const originalPosition = camera.position.clone();
 
   renderer.setSize(1024, 1024);
+  renderer.setPixelRatio(1);
   renderer.setClearColor(0x000000, 0);
   renderer.setClearAlpha(0);
   scene.background = null;
@@ -369,6 +370,7 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
   height = window.innerHeight;
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(width, height);
+  renderer.setPixelRatio(window.devicePixelRatio);
   camera.aspect = width / height;
   camera.position.copy(originalPosition);
   camera.updateProjectionMatrix();
