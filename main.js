@@ -96,6 +96,7 @@ const camera = new THREE.PerspectiveCamera(65.0, width / height, 0.01, 2000.0);
 camera.position.set(0.0, 0.6, 1.7);
 camera.aspect = width / height;
 camera.updateProjectionMatrix();
+window.camera = camera;
 
 
 // custom camera controls (Orbit for rotate, Track for zoom)
@@ -252,13 +253,13 @@ function transferBoneOperations(source, target, isInit=false) {
 
 
 // カメラ回転と画像キャプチャのための関数
-async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 30) {
+async function captureImagesWithRotation(scene, camera, renderer, size=1024, roundFrames=30) {
   axesHelper.visible = false;
   Utils.visualizeVRM(character.sotai, false);
 
   const originalPosition = camera.position.clone();
 
-  renderer.setSize(1024, 1024);
+  renderer.setSize(size, size);
   renderer.setPixelRatio(1);
   renderer.setClearColor(0x000000, 0);
   renderer.setClearAlpha(0);
@@ -315,7 +316,7 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
     camera.lookAt(0, 0, 0);
 
     camera.updateMatrixWorld(true);
-    const w2c = camera.matrixWorldInverse.clone();
+    const w2c = camera.matrixWorld.clone();
     w2cList.push(Array.from(w2c.elements));
 
     renderer.render(scene, camera);
@@ -338,7 +339,7 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
     camera.lookAt(0, 0, 0);
 
     camera.updateMatrixWorld(true);
-    const w2c = camera.matrixWorldInverse.clone();
+    const w2c = camera.matrixWorld.clone();
     w2cList.push(Array.from(w2c.elements));
 
     renderer.render(scene, camera);
