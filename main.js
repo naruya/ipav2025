@@ -213,6 +213,9 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
   const originalPosition = camera.position.clone();
 
   renderer.setSize(1024, 1024);
+  renderer.setClearColor(0x000000, 0);
+  renderer.setClearAlpha(0);
+  scene.background = null;
   camera.aspect = 1;
   camera.updateProjectionMatrix();
 
@@ -223,6 +226,36 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
   const zip = new JSZip();
   const imageFolderName = "images";
   const imageFolder = zip.folder(imageFolderName);
+
+  const sotai = character.sotai;
+  const boneOperations = [];
+
+  for (const boneName of Object.keys(sotai.currentVrm.humanoid.humanBones)) {
+    const rawBone = sotai.currentVrm.humanoid.getRawBoneNode(boneName);
+    const normBone = sotai.currentVrm.humanoid.getNormalizedBoneNode(boneName);
+
+    if (rawBone && normBone) {
+      const operation = {
+        boneName: boneName,
+        position: {
+          x: rawBone.position.x,
+          y: rawBone.position.y,
+          z: rawBone.position.z
+        },
+        rotation: {
+          x: normBone.rotation.x * 180 / Math.PI,
+          y: normBone.rotation.y * 180 / Math.PI,
+          z: normBone.rotation.z * 180 / Math.PI
+        }
+      };
+      boneOperations.push(operation);
+    }
+  }
+
+  const boneOperationsJson = JSON.stringify({
+    boneOperations: boneOperations
+  }, null, 2);
+  zip.file("bone_operations.json", boneOperationsJson);
 
   const w2cList = [];
 
@@ -240,7 +273,7 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
 
     renderer.render(scene, camera);
 
-    const dataUrl = renderer.domElement.toDataURL('image/png');
+    const dataUrl = renderer.domElement.toDataURL('image/png', 1.0);
     const imageData = dataUrl.split('base64,')[1];
     imageFolder.file(`rotation_${String(i).padStart(3, '0')}.png`, imageData, {base64: true});
 
@@ -343,7 +376,7 @@ if (gvrmPath) {
   await sotai.loadingPromise;
   sotai.skinnedMeshIndex = 2;
   sotai.faceIndex = 1;
-  Utils.visualizeVRM(sotai, null);
+  Utils.visualizeVRM(sotai, false);
   character.sotai = sotai;
 
   stateAnim = "stop";
@@ -491,7 +524,10 @@ window.addEventListener('keydown', function (event) {
     }
   }
   if (event.code === "KeyX") {
-    if (!gvrm) return;
+    if (!gvrm) {
+      Utils.visualizeVRM(character.sotai, null);
+      return;
+    };
 
     Utils.visualizeVRM(gvrm.character, null);
   }
