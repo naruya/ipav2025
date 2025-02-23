@@ -182,10 +182,20 @@ let stateAnim = "play";
 let stateColor = "original";
 
 
-function transferBoneOperations(sourceVRM, targetVRM, sourceScale) {
+function transferBoneOperations(source, target, isInit=false) {
+  const sourceVRM = source.currentVrm;
+  const targetVRM = target.currentVrm;
+
   const characterBones = new Set(Object.keys(sourceVRM.humanoid.humanBones));
   const sotaiBones = new Set(Object.keys(targetVRM.humanoid.humanBones));
   const commonBones = [...characterBones].filter(bone => sotaiBones.has(bone));
+  const extraBones = [...characterBones].filter(bone => !sotaiBones.has(bone));
+  const missingBones = [...sotaiBones].filter(bone => !characterBones.has(bone));
+  if (extraBones.length > 0 || missingBones.length > 0) {
+    console.error("Extra bones:", extraBones);
+    console.error("Missing bones:", missingBones);
+    return;
+  }
 
   for (const boneName of commonBones) {
     const sourceRawBone = sourceVRM.humanoid.getRawBoneNode(boneName);
@@ -194,22 +204,58 @@ function transferBoneOperations(sourceVRM, targetVRM, sourceScale) {
     const targetNormBone = targetVRM.humanoid.getNormalizedBoneNode(boneName);
 
     if (sourceRawBone && targetRawBone && sourceNormBone && targetNormBone) {
-      // targetRawBone.position.copy(sourceRawBone.position);
-      // targetNormBone.rotation.copy(sourceNormBone.rotation);
-      targetRawBone.position.x = sourceRawBone.position.x * sourceScale;
-      // targetRawBone.position.y = sourceRawBone.position.y * sourceScale;
-      if (targetRawBone.position.y < 0.) {
-        targetRawBone.position.y = sourceRawBone.position.y * sourceScale;
-      }
+      targetRawBone.position.copy(sourceRawBone.position);
+      targetNormBone.rotation.copy(sourceNormBone.rotation);
     }
   }
   targetVRM.humanoid.update();
+
+  sourceVRM.scene.position.y = 0;
+  targetVRM.scene.position.y = 0;
+
+  targetVRM.scene.updateMatrixWorld(true);
+  const skinnedMesh = targetVRM.scene.children[target.skinnedMeshIndex];
+  const geometry = skinnedMesh.geometry;
+  const position = geometry.attributes.position;
+  const vertex = new THREE.Vector3();
+  const box = new THREE.Box3();
+  box.makeEmpty();
+
+  for (let i = 0; i < position.count; i++) {
+    vertex.fromBufferAttribute(position, i);
+    const skinned = skinnedMesh.applyBoneTransform(i, vertex.clone());
+    box.expandByPoint(skinned);
+  }
+
+  if (isInit) {
+    const bbsize = new THREE.Vector3();
+    box.getSize(bbsize);
+    // const helper = new THREE.Box3Helper(box, 0xffff00);
+    // helper.name = 'bboxHelper';
+    // targetVRM.scene.add(helper);
+
+    const floorOffset = box.min.y;
+    targetVRM.scene.position.y = -floorOffset;
+
+    const targetToes = targetVRM.humanoid.getNormalizedBoneNode('leftToes');
+    const targetToeY = (new THREE.Vector3().setFromMatrixPosition(targetToes.matrixWorld)).y;
+    const sourceToes = sourceVRM.humanoid.getNormalizedBoneNode('leftToes');
+    const sourceToeY = (new THREE.Vector3().setFromMatrixPosition(sourceToes.matrixWorld)).y;
+    targetVRM.scene.position.y += (sourceToeY - targetToeY) + source.ground;
+    sourceVRM.scene.position.y = source.ground;
+    target.ground = targetVRM.scene.position.y;
+  } else {
+    targetVRM.scene.position.y = target.ground;
+    sourceVRM.scene.position.y = source.ground;
+  }
 }
 
 
 // カメラ回転と画像キャプチャのための関数
 async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 30) {
   axesHelper.visible = false;
+  Utils.visualizeVRM(character.sotai, false);
+
   const originalPosition = camera.position.clone();
 
   renderer.setSize(1024, 1024);
@@ -326,8 +372,9 @@ async function captureImagesWithRotation(scene, camera, renderer, roundFrames = 
   camera.aspect = width / height;
   camera.position.copy(originalPosition);
   camera.updateProjectionMatrix();
+
   axesHelper.visible = true;
-  renderer.render(scene, camera);
+  Utils.visualizeVRM(character.sotai, true);
 
   document.getElementById('loaddisplay').innerHTML = 'Capture complete';
 }
@@ -360,6 +407,13 @@ if (gvrmPath) {
   character.skinnedMeshIndex = 2;
   character.faceIndex = 1;
   window.character = character;
+
+  let sotai = new VRMCharacter(scene, sotaiPath, '', 1.0, true);
+  await sotai.loadingPromise;
+  sotai.skinnedMeshIndex = 2;
+  sotai.faceIndex = 1;
+  character.sotai = sotai;
+
   let response = await fetch("./assets/default.json");
   const params = await response.json();
   const boneOperations = params.boneOperations;
@@ -372,47 +426,13 @@ if (gvrmPath) {
   boneOperations[3].rotation.z = -30;
   character.boneOperations = boneOperations;
 
-  let sotai = new VRMCharacter(scene, sotaiPath, '', 1.0, true);
-  await sotai.loadingPromise;
-  sotai.skinnedMeshIndex = 2;
-  sotai.faceIndex = 1;
-  Utils.visualizeVRM(sotai, false);
-  character.sotai = sotai;
-
-  stateAnim = "stop";
-
-  // characterのneckまでの絶対座標を計算
-  let characterAbs = 0.;
-  characterAbs += character.currentVrm.humanoid.getRawBoneNode('hips').position.y;
-  characterAbs += character.currentVrm.humanoid.getRawBoneNode('spine').position.y;
-  characterAbs += character.currentVrm.humanoid.getRawBoneNode('chest').position.y;
-  characterAbs += character.currentVrm.humanoid.getRawBoneNode('neck').position.y;
-  characterAbs -= character.currentVrm.humanoid.getRawBoneNode('leftUpperLeg').position.y;
-  characterAbs -= character.currentVrm.humanoid.getRawBoneNode('leftLowerLeg').position.y;
-  characterAbs -= character.currentVrm.humanoid.getRawBoneNode('leftFoot').position.y;
-  characterAbs -= character.currentVrm.humanoid.getRawBoneNode('leftToes').position.y;
-
-  // sotaiのchestまでの絶対座標を計算
-  let sotaiAbs = 0.;
-  sotaiAbs += sotai.currentVrm.humanoid.getRawBoneNode('hips').position.y;
-  sotaiAbs += sotai.currentVrm.humanoid.getRawBoneNode('spine').position.y;
-  sotaiAbs += sotai.currentVrm.humanoid.getRawBoneNode('chest').position.y;
-  sotaiAbs += sotai.currentVrm.humanoid.getRawBoneNode('upperChest').position.y;
-  sotaiAbs += sotai.currentVrm.humanoid.getRawBoneNode('neck').position.y;
-  sotaiAbs -= sotai.currentVrm.humanoid.getRawBoneNode('leftUpperLeg').position.y;
-  sotaiAbs -= sotai.currentVrm.humanoid.getRawBoneNode('leftLowerLeg').position.y;
-  sotaiAbs -= sotai.currentVrm.humanoid.getRawBoneNode('leftFoot').position.y;
-  sotaiAbs -= sotai.currentVrm.humanoid.getRawBoneNode('leftToes').position.y;
-
-  character.setScale(sotaiAbs / characterAbs);
-
-  // get common bones
-  // root -> hips -> spine -> chest (-> upperChest) -> neck
   Utils.resetPose(character, character.boneOperations);
   Utils.resetPose(character.sotai, character.boneOperations);
-  transferBoneOperations(character.currentVrm, sotai.currentVrm, character.scale);
+  transferBoneOperations(character, sotai, true);
 
   await captureImagesWithRotation(scene, camera, renderer);
+
+  stateAnim = "stop";
 }
 
 const poseDetector = new PoseDetector(scene, camera, renderer);
@@ -579,7 +599,7 @@ function animateVRM() {
   } else if (stateAnim === "pause") {
     Utils.resetPose(character, character.boneOperations);
     Utils.resetPose(character.sotai, character.boneOperations);
-    transferBoneOperations(character.currentVrm, character.sotai.currentVrm, character.sotai.scale);
+    transferBoneOperations(character, character.sotai);
 
     t = 0;
     stateAnim = "stop";
