@@ -544,11 +544,10 @@ window.addEventListener('drop', async function (event) {
 
   async function onDrop(fileType, url) {
     if (fileType === 'fbx') {
-      await gvrm.character.changeFBX(scene, url);
+      await gvrm.character.changeFBX(scene, url, gvrm.boneOperations);
     }
   }
 
-  Utils.resetPose(gvrm.character, gvrm.boneOperations);
   await onDrop(fileType, url);
   stateAnim = "play";
 });

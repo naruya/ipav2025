@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import * as Utils from './utils.js';
 
 
 export class VRMCharacter {
@@ -10,6 +11,8 @@ export class VRMCharacter {
         this.animationUrl = animationUrl;
         this.currentVrm = undefined;
         this.currentMixer = undefined;
+        this.previousAction = null;
+        this.transitionDuration = 0.5;
         this.scene = scene;  // for child
         this.scale = scale;
         this.center = center;
@@ -112,19 +115,49 @@ export class VRMCharacter {
         }
     }
 
-    async loadFBX(animationUrl = null, direct = true) {
+    async loadFBX(animationUrl = null, direct = true, boneOperations = null) {
+        this._isLoading = true;
         if (animationUrl) this.animationUrl = animationUrl;
-        this.currentMixer = new THREE.AnimationMixer(this.currentVrm.scene);
-        loadMixamoAnimation(this.animationUrl, this.currentVrm, this.scale).then((clip) => {
-            this.action = this.currentMixer.clipAction(clip);
-            this.action.play();
-        });
-        // Be careful not to loadFBX twice.
-        // The parent's loadVRM->loadFBX does not instruct the child to loadFBX.
-        // The child loadFBX when it loadVRM or loadFBX directly.
-        if (this.child && direct) {
-            await this.child.loadFBX(this.animationUrl);
+
+        if (!this.currentMixer) {
+            this.currentMixer = new THREE.AnimationMixer(this.currentVrm.scene);
+            const hips = this.currentVrm.humanoid.getRawBoneNode('hips');
+            this.initialHipsPosition = hips.position.clone();
         }
+
+        const hips = this.currentVrm.humanoid.getRawBoneNode('hips');
+        if (hips && this.initialHipsPosition) {
+            const positionDiff = Math.abs(hips.position.x - this.initialHipsPosition.x) +
+                            Math.abs(hips.position.y - this.initialHipsPosition.y) +
+                            Math.abs(hips.position.z - this.initialHipsPosition.z);
+            if (positionDiff > 0.3) {
+                Utils.resetPose(this, boneOperations);
+                this.action.stop();
+                this.action = null;
+            }
+        }
+
+        const clip = await loadMixamoAnimation(this.animationUrl, this.currentVrm, this.scale);
+
+        this.previousAction = this.action;
+
+        this.action = this.currentMixer.clipAction(clip);
+
+        if (this.previousAction) {
+            this.previousAction.fadeOut(this.transitionDuration);
+
+            this.action
+                .reset()
+                .setEffectiveTimeScale(1)
+                .setEffectiveWeight(1)
+                .fadeIn(this.transitionDuration)
+                .play();
+        } else {
+            this.action.play();
+            this.currentMixer.update(0);
+            this.currentVrm.update(0);
+        }
+        this._isLoading = false;
     }
 
     // TODO: be careful not to call this twice
@@ -172,8 +205,8 @@ export class VRMCharacter {
         }
     }
 
-    async changeFBX(scene, url) {
-        await this.loadFBX(url);
+    async changeFBX(scene, url, boneOperations=null) {
+        await this.loadFBX(url, null, boneOperations);
     }
 
     // can be overridden
@@ -206,15 +239,15 @@ export class VRMCharacter {
     }
 
     update() {
+        if (this._isLoading) {
+            return;
+        }
         const deltaTime = this.clock.getDelta();
         if (this.currentVrm) {
             this.currentVrm.update(deltaTime);
         }
         if (this.currentMixer) {
             this.currentMixer.update(deltaTime);
-        }
-        if (this.child) {
-            this.child.update();
         }
     }
 }
