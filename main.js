@@ -577,10 +577,14 @@ window.addEventListener('keydown', function (event) {
   if (event.code === "Space") {
     if (stateAnim === "play") {
       stateAnim = "pause";
+      if (gvrm && gvrm.character.animationUrl !== '') {
+        gvrm.character.action.paused = true;
+      }
     } else {
       stateAnim = "play";
-      t = 0;
+      // t = 0;
       if (gvrm && gvrm.character.animationUrl !== '') {
+        gvrm.character.action.paused = false;
         gvrm.character.action.play();
       }
     }
@@ -628,15 +632,17 @@ function animate() {
 
     if (stateAnim === "play") {
       if (gvrm.character.animationUrl === '') {
+        t += 1.0;
         Utils.simpleAnim(gvrm.character, t);
       }
     } else if (stateAnim === "pause") {
-      Utils.resetPose(gvrm.character, gvrm.boneOperations);
       if (gvrm.character.animationUrl === '')  {
-        t = 0;
+        // Utils.resetPose(gvrm.character, gvrm.boneOperations);
+        // t = 0;
       } else {
-        gvrm.character.action.reset();
-        gvrm.character.action.stop();
+        // Utils.resetPose(gvrm.character, gvrm.boneOperations);
+        // gvrm.character.action.reset();
+        // gvrm.character.action.stop();
       }
       stateAnim = "stop";
     }
@@ -652,7 +658,6 @@ function animate() {
 
   renderer.render(scene, camera);
   fpsc.update();
-  t += 1.0;
 }
 
 
