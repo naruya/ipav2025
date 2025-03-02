@@ -293,7 +293,7 @@ export class GVRM {
         tempChildPos.setFromMatrixPosition(childBone.matrixWorld);
         tempMidPoint.addVectors(tempNodePos, tempChildPos).multiplyScalar(0.5);
 
-        boneRotationMatrix.extractRotation(childBone.matrixWorld);
+        boneRotationMatrix.extractRotation(bone.matrixWorld);
         rotationQuaternion.setFromRotationMatrix(boneRotationMatrix);
         rotationQuaternion.multiply(characterQuaternion);
 
