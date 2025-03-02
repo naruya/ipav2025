@@ -583,12 +583,13 @@ export function gsCustomizeMaterial(character, gs) {
 
       #include <skinbase_vertex>  // boneMat
       #include <skinnormal_vertex>  // skinMatrix, using normal
-      #include <defaultnormal_vertex>  // ?
       #include <skinning_vertex>
       objectNormal = ( meshMatrixWorld * vec4(objectNormal, 1.0) ).xyz;
 
+      // no skinning
       // vec3 splatCenter = ( meshMatrixWorld * vec4(transformed + relativePos, 1.0) ).xyz;
 
+      // skinning
       vec3 skinnedRelativePos = vec4( skinMatrix * inverse(skinMatrix0) * vec4( relativePos, 0.0 ) ).xyz;
       vec3 splatCenter = ( meshMatrixWorld * vec4(transformed + skinnedRelativePos, 1.0) ).xyz;
       `
@@ -600,18 +601,23 @@ export function gsCustomizeMaterial(character, gs) {
     );
     shader.vertexShader = shader.vertexShader.replace(
       'mat3 W = transpose(mat3(transformModelViewMatrix));',
-      'mat3 W = transpose(mat3(viewMatrix * transform));'
+      'mat3 W = transpose(mat3(viewMatrix));'
     );
     shader.vertexShader = shader.vertexShader.replace(
       'mat3 cov2Dm = transpose(T) * Vrk * T;',
       `
-      mat3 transformR = mat3(transform);
-      transformR[0] = normalize(transformR[0]);
-      transformR[1] = normalize(transformR[1]);
-      transformR[2] = normalize(transformR[2]);
-
-      // transformModelViewMatrix にした場合、x: NG, y:OK, z:OK, scale: OK, t=0: OK (いったんこれ？)
       mat3 skinRotationMatrix = mat3(skinMatrix * inverse(skinMatrix0));
+
+      // TODO: refactor
+      mat3 rotationZ180 = mat3(
+          -1.0, 0.0, 0.0,
+          0.0, -1.0, 0.0,
+          0.0, 0.0, 1.0
+      );
+      Vrk = rotationZ180 * Vrk * transpose(rotationZ180);
+      skinRotationMatrix[0][2] = -skinRotationMatrix[0][2];
+      skinRotationMatrix[2][0] = -skinRotationMatrix[2][0];
+
       mat3 cov2Dm = transpose(T) * transpose(skinRotationMatrix) * Vrk * skinRotationMatrix * T;
       `
     );
