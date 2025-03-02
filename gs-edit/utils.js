@@ -181,7 +181,10 @@ export function simpleAnim(character, t) {
   const s1 = Math.PI * 65 / 180 * Math.sin( Math.PI * (t / 60. + 0.5));
   const s2 = 0.4 * Math.PI * Math.sin( Math.PI * (t / 60.));
   character.currentVrm.humanoid.getNormalizedBoneNode( 'leftUpperArm' ).rotation.z = s1;
+  // character.currentVrm.humanoid.getNormalizedBoneNode( 'leftUpperArm' ).rotation.z = 0;
+  // character.currentVrm.humanoid.getNormalizedBoneNode( 'leftUpperArm' ).rotation.y = s1;
   character.currentVrm.humanoid.getNormalizedBoneNode( 'leftUpperLeg' ).rotation.x = s2;
   character.currentVrm.humanoid.getNormalizedBoneNode( 'leftLowerLeg' ).rotation.x = -Math.max(s2,0);
   character.currentVrm.humanoid.getNormalizedBoneNode( 'rightLowerLeg' ).rotation.y = s2;
+  // character.currentVrm.humanoid.getNormalizedBoneNode( 'hips' ).rotation.y = s1;
 }
